@@ -1,6 +1,6 @@
 """
 Mock scanner functions for demonstration purposes.
-Used when API keys are not configured.
+Used when API keys are not configured or when in production environment.
 """
 import os
 import hashlib

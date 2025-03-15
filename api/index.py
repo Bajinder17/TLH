@@ -14,6 +14,9 @@ from url_scanner import scan_url
 from port_scanner import scan_ports
 from report_generator import generate_report, get_report, get_all_reports
 
+# Add this import at the top with other imports
+from mock_scanner import mock_file_scan, mock_url_scan, mock_port_scan
+
 # Load environment variables
 load_dotenv()
 
@@ -50,10 +53,9 @@ def api_scan_file():
     try:
         print("Starting file scan request")
         
-        # Force mock mode in Vercel environment for reliability
+        # Always use mock scanner in Vercel environment
         use_mock = True
         
-        # Extract file info even if we'll use mock mode
         if 'file' not in request.files:
             return jsonify({'error': 'No file part'}), 400
         
@@ -76,21 +78,18 @@ def api_scan_file():
                 with open(file_path, 'rb') as f:
                     file_hash = hashlib.sha256(f.read()).hexdigest()
                 
-                # Use mock scanner for reliability on Vercel
-                from mock_scanner import mock_file_scan
+                # Use mock scanner
                 scan_result = mock_file_scan(file_path, file_hash)
                 
-                # Generate report
-                report_id = generate_report('file', {
+                # Generate report with mock result
+                generate_report('file', {
                     'filename': filename,
                     'hash': file_hash,
                     'size': os.path.getsize(file_path),
                     'result': scan_result
                 })
                 
-                result = scan_result
-                
-                return jsonify(result)
+                return jsonify(scan_result)
                 
             except Exception as e:
                 print("Error in file scanning:", str(e))
@@ -99,7 +98,10 @@ def api_scan_file():
             finally:
                 # Clean up temp file
                 if os.path.exists(file_path):
-                    os.remove(file_path)
+                    try:
+                        os.remove(file_path)
+                    except:
+                        pass
         
         return jsonify({'error': 'Invalid file type'}), 400
     except Exception as e:
@@ -123,13 +125,11 @@ def api_scan_url():
         print(f"URL to scan: {url}")
         
         try:
-            scan_result = scan_url(url)
+            # Use mock scanner in Vercel environment
+            scan_result = mock_url_scan(url)
             
-            print(f"URL scan result: {scan_result}")
-            
-            # Generate report - this will still happen in the backend
-            # but we won't return the report_id to the frontend
-            report_id = generate_report('url', {
+            # Generate report
+            generate_report('url', {
                 'url': url,
                 'result': scan_result
             })
@@ -139,11 +139,11 @@ def api_scan_url():
         except Exception as e:
             print("Error in URL scanning:", str(e))
             traceback.print_exc()
-            return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+            return jsonify({'error': str(e)}), 500
     except Exception as e:
         print("Unexpected error in URL scanning API:", str(e))
         traceback.print_exc()
-        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/scan-ports', methods=['POST', 'OPTIONS'])
 def api_scan_ports():
@@ -162,50 +162,27 @@ def api_scan_ports():
         
         print(f"Target: {target}, Port range: {port_range}")
         
-        # Limit the port range to avoid timeout
-        if ',' in port_range:
-            port_count = len(port_range.split(','))
-            if port_count > 100:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Too many ports specified. Please limit to 100 ports maximum.'
-                }), 400
-        elif '-' in port_range:
-            try:
-                start, end = map(int, port_range.split('-'))
-                if end - start > 1000:
-                    return jsonify({
-                        'status': 'error',
-                        'message': 'Port range too large. Please limit to 1000 ports maximum.'
-                    }), 400
-            except:
-                pass
-        
         try:
-            scan_result = scan_ports(target, port_range)
+            # Use mock scanner in Vercel environment
+            scan_result = mock_port_scan(target, port_range)
             
-            print(f"Port scan result: {scan_result}")
-            
-            # Generate report - this will still happen in the backend
-            # but we won't return the report_id to the frontend
-            report_id = generate_report('port', {
+            # Generate report
+            generate_report('port', {
                 'target': target,
                 'port_range': port_range,
                 'result': scan_result
             })
             
-            # Don't include report_id in response
-            # scan_result['report_id'] = report_id
             return jsonify(scan_result)
             
         except Exception as e:
             print("Error in port scanning:", str(e))
             traceback.print_exc()
-            return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+            return jsonify({'error': str(e)}), 500
     except Exception as e:
         print("Unexpected error in port scanning API:", str(e))
         traceback.print_exc()
-        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
