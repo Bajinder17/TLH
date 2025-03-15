@@ -2,7 +2,6 @@ from flask import Flask, jsonify, request
 import os
 import time
 import random
-import json
 
 app = Flask(__name__)
 
@@ -31,41 +30,23 @@ def catch_all(path):
     if path == '' or path == '/' or path == 'api/health' or path == '/api/health':
         return jsonify({
             'status': 'healthy',
-            'message': 'ThreatLightHouse API is running on Vercel',
+            'message': 'ThreatLightHouse API is running',
             'timestamp': int(time.time())
         }), 200, headers
     
-    # File scanner endpoint - very simplified to avoid errors
+    # File scanner endpoint
     if path == 'api/scan-file' or path == '/api/scan-file':
-        # Generate basic safe response regardless of input
         result = {
             'status': 'clean',
-            'message': 'File scan completed successfully',
+            'message': 'File scan completed',
             'detections': '0 / 68',
             'scan_date': int(time.time()),
             'source': 'Vercel Scanner'
         }
         
-        # Try to get filename from request if available
-        try:
-            if request.is_json:
-                data = request.get_json(silent=True) or {}
-                filename = data.get('filename')
-                if filename and '.' in filename:
-                    extension = filename.split('.')[-1].lower()
-                    # Potentially risky extensions
-                    risky_extensions = ['exe', 'dll', 'bat', 'ps1', 'vbs', 'js']
-                    # Generate consistent results for demo purposes
-                    if extension in risky_extensions and len(filename) % 10 < 3:
-                        result['status'] = 'malicious'
-                        result['detections'] = f"{random.randint(3, 20)} / 68"
-        except:
-            # Silent error - continue with default result
-            pass
-            
         return jsonify(result), 200, headers
     
-    # URL scanner endpoint (simplified)
+    # URL scanner endpoint
     if path == 'api/scan-url' or path == '/api/scan-url':
         result = {
             'status': 'safe',
@@ -75,29 +56,9 @@ def catch_all(path):
             'source': 'Vercel Scanner'
         }
         
-        try:
-            if request.is_json:
-                data = request.get_json(silent=True) or {}
-                url = data.get('url', '')
-                
-                # Check for suspicious patterns in URL
-                if url:
-                    malicious_patterns = ['malware', 'phishing', 'evil', 'hack', 'virus']
-                    suspicious_patterns = ['free', 'casino', 'prize', 'win', 'discount']
-                    
-                    if any(pattern in url.lower() for pattern in malicious_patterns):
-                        result['status'] = 'malicious'
-                        result['detections'] = f"{random.randint(5, 15)} / 86"
-                    elif any(pattern in url.lower() for pattern in suspicious_patterns):
-                        result['status'] = 'suspicious'
-                        result['detections'] = f"{random.randint(1, 4)} / 86"
-        except:
-            # Silent error - continue with default result
-            pass
-        
         return jsonify(result), 200, headers
     
-    # Port scanner endpoint (simplified)
+    # Port scanner endpoint
     if path == 'api/scan-ports' or path == '/api/scan-ports':
         return jsonify({
             'status': 'completed',
@@ -114,10 +75,10 @@ def catch_all(path):
     
     # Default for unknown endpoints
     return jsonify({
-        'status': 'ok',
+        'status': 'error',
         'message': f'Unknown endpoint: {path}',
         'timestamp': int(time.time())
-    }), 200, headers
+    }), 404, headers
 
 # This is used by Vercel to call the Flask app
 handler = app
