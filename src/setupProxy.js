@@ -23,7 +23,5 @@ module.exports = function(app) {
         },
       })
     );
-  } else {
-    console.log('Production mode: proxy not needed, API requests will be handled by Vercel');
   }
 };

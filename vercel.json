@@ -2,21 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/vercel.py",
+      "src": "api/serverless.py",
       "use": "@vercel/python"
     },
     {
       "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
+      "use": "@vercel/static-build"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/vercel.py"
+      "dest": "/api/serverless.py"
     },
     {
       "handle": "filesystem"
@@ -25,8 +22,5 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "env": {
-    "PYTHONUNBUFFERED": "1"
-  }
+  ]
 }
