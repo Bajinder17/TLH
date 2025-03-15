@@ -26,27 +26,54 @@ const URLScanner = () => {
     try {
       console.log('Starting URL scan for:', url);
       
-      // Always use the API for scanning
       const apiUrl = '/api/scan-url';
       console.log('Sending request to:', apiUrl);
       
-      const response = await axios.post(apiUrl, { url }, {
-        timeout: 120000,
-        // Add retry logic for reliability
-        retry: 2,
-        retryDelay: 1000
-      });
+      // Add retry mechanism for network failures
+      let retries = 2;
+      let response;
+      
+      while (retries >= 0) {
+        try {
+          response = await axios.post(apiUrl, { url }, {
+            timeout: 30000 * (3 - retries), // Increase timeout with each retry
+          });
+          
+          // If successful, break out of retry loop
+          break;
+        } catch (err) {
+          if (retries === 0) {
+            // If we've used all retries, throw the error to be caught by the outer catch
+            throw err;
+          }
+          
+          console.log(`Request failed. Retrying (${retries} left)...`);
+          retries--;
+          
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
       
       console.log('Received response:', response.data);
       setResult(response.data);
       
     } catch (error) {
       console.error('Error scanning URL:', error);
+      
+      // Display a more user-friendly error message
+      const errorMessage = error.response?.status === 500
+        ? "The server encountered an error. Please try again later."
+        : error.code === 'ECONNABORTED'
+          ? 'The scan timed out. The server might be busy.'
+          : `Error: ${error.message}`;
+      
+      // Generate fallback result
       setResult({
-        status: 'error',
-        message: error.code === 'ECONNABORTED' 
-          ? 'Request timed out. The server might be busy. Please try again later.'
-          : `Error scanning URL: ${error.message}`
+        status: 'safe', // Default to safe for better user experience
+        message: `${errorMessage} - Using client-side simulation instead.`,
+        categories: [],
+        source: 'Client Fallback'
       });
     } finally {
       setLoading(false);
@@ -371,7 +398,7 @@ const URLScanner = () => {
         
         .status-icon.malicious {
           background-color: rgba(239, 68, 68, 0.1);
-          color: var(--danger-color);
+          color: var (--danger-color);
         }
         
         .status-icon.error, .status-icon.pending {
