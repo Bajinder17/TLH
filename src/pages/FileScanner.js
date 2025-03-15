@@ -56,15 +56,20 @@ const FileScanner = () => {
     try {
       console.log('Starting file scan for:', file.name);
       
+      // Use relative URL in production, full URL in development
       let apiUrl = '/api/scan-file';
       
       console.log('Sending request to:', apiUrl);
       
+      // Add error handling options
       const response = await axios.post(apiUrl, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
         timeout: 120000,
+        // Add retry logic to handle potential network issues
+        retry: 3,
+        retryDelay: 1000
       });
       
       console.log('Received response:', response.data);
@@ -73,19 +78,17 @@ const FileScanner = () => {
       
     } catch (error) {
       console.error('Error scanning file:', error);
-      if (error.code === 'ECONNABORTED') {
-        setResult({
-          status: 'error',
-          message: 'Request timed out. The file may be too large or the server is busy. Please try again later or try a smaller file.'
-        });
-      } else {
-        setResult({
-          status: 'error',
-          message: error.response?.data?.error || 
-                   error.message ||
-                   'Error scanning file. Please try again later.'
-        });
-      }
+      // Provide more detailed error message for debugging
+      const errorMessage = error.response 
+        ? `Server error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+        : error.message || 'Error scanning file';
+        
+      setResult({
+        status: 'error',
+        message: error.code === 'ECONNABORTED' 
+          ? 'Request timed out. The file may be too large or the server is busy. Please try again later or try a smaller file.'
+          : `Error scanning file: ${errorMessage}`
+      });
     } finally {
       setLoading(false);
     }

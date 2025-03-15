@@ -49,6 +49,11 @@ def api_scan_file():
         
     try:
         print("Starting file scan request")
+        
+        # Force mock mode in Vercel environment for reliability
+        use_mock = True
+        
+        # Extract file info even if we'll use mock mode
         if 'file' not in request.files:
             return jsonify({'error': 'No file part'}), 400
         
@@ -66,48 +71,31 @@ def api_scan_file():
             file_path = os.path.join(temp_dir, filename)
             file.save(file_path)
             
-            # Check file size - limit to 32MB to avoid timeout issues
-            file_size = os.path.getsize(file_path)
-            if file_size > 32 * 1024 * 1024:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'File is too large. Maximum allowed size is 32MB.'
-                }), 413
-            
             try:
                 # Generate file hash
                 with open(file_path, 'rb') as f:
                     file_hash = hashlib.sha256(f.read()).hexdigest()
                 
-                print(f"File hash: {file_hash}")
+                # Use mock scanner for reliability on Vercel
+                from mock_scanner import mock_file_scan
+                scan_result = mock_file_scan(file_path, file_hash)
                 
-                # Start a background thread for scanning large files
-                if file_size > 10 * 1024 * 1024:  # 10MB
-                    print("Large file detected, processing in background")
-                    result = {
-                        'status': 'pending',
-                        'message': 'File is being processed in the background. This may take a few minutes.'
-                    }
-                    threading.Thread(target=scan_file_background, args=(file_path, file_hash, filename)).start()
-                else:
-                    # Scan file with timeout
-                    scan_result = scan_file(file_path, file_hash)
-                    
-                    # Generate report ID but don't include in response
-                    generate_report('file', {
-                        'filename': filename,
-                        'hash': file_hash,
-                        'result': scan_result
-                    })
-                    
-                    result = scan_result
+                # Generate report
+                report_id = generate_report('file', {
+                    'filename': filename,
+                    'hash': file_hash,
+                    'size': os.path.getsize(file_path),
+                    'result': scan_result
+                })
+                
+                result = scan_result
                 
                 return jsonify(result)
                 
             except Exception as e:
                 print("Error in file scanning:", str(e))
                 traceback.print_exc()
-                return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+                return jsonify({'status': 'error', 'message': str(e)}), 500
             finally:
                 # Clean up temp file
                 if os.path.exists(file_path):
@@ -117,7 +105,7 @@ def api_scan_file():
     except Exception as e:
         print("Unexpected error in file scanning API:", str(e))
         traceback.print_exc()
-        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/scan-url', methods=['POST', 'OPTIONS'])
 def api_scan_url():

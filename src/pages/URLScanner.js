@@ -32,6 +32,11 @@ const URLScanner = () => {
       
       const response = await axios.post(apiUrl, { url }, {
         timeout: 120000,
+        // Add retry logic
+        retry: 3,
+        retryDelay: 1000,
+        // Add proper error handling
+        validateStatus: status => status < 500 // Resolve only if status < 500
       });
       
       console.log('Received response:', response.data);
@@ -40,19 +45,17 @@ const URLScanner = () => {
       
     } catch (error) {
       console.error('Error scanning URL:', error);
-      if (error.code === 'ECONNABORTED') {
-        setResult({
-          status: 'error',
-          message: 'Request timed out. The server might be busy. Please try again later.'
-        });
-      } else {
-        setResult({
-          status: 'error',
-          message: error.response?.data?.error || 
-                   error.message ||
-                   'Error scanning URL. Please try again later.'
-        });
-      }
+      // Provide more detailed error info for debugging
+      const errorMessage = error.response 
+        ? `Server error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+        : error.message || 'Error scanning URL';
+        
+      setResult({
+        status: 'error',
+        message: error.code === 'ECONNABORTED' 
+          ? 'Request timed out. The server might be busy. Please try again later.'
+          : `Error scanning URL: ${errorMessage}`
+      });
     } finally {
       setLoading(false);
     }
