@@ -53,82 +53,95 @@ const FileScanner = () => {
     setLoading(true);
     setResult(null);
     
+    console.log('Starting file scan for:', file.name);
+    
+    // Create a smaller representation of the file to send to Vercel
+    // This avoids issues with large file uploads
+    const fileData = {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      lastModified: file.lastModified
+    };
+    
+    // Create FormData and add both the file and the file metadata
     const formData = new FormData();
-    formData.append('file', file);
+    
+    // Only add the actual file if it's small enough (under 4MB)
+    // Vercel has limitations on payload size
+    if (file.size < 4 * 1024 * 1024) {
+      formData.append('file', file);
+    }
+    
+    // Always include the filename separately to ensure the server gets it
     formData.append('filename', file.name);
     
     try {
-      console.log('Starting file scan for:', file.name);
-      
-      // Define the API URL - always use the relative path in production
-      const apiUrl = '/api/scan-file';
+      let response;
+      let apiUrl = '/api/scan-file';
       console.log('Sending request to:', apiUrl);
       
-      // Add retry mechanism with improved error handling
-      let retries = apiConfig.requestConfig.retries;
-      let response;
-      let lastError = null;
-      
-      while (retries >= 0) {
-        try {
-          response = await axios.post(apiUrl, formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              'Cache-Control': 'no-cache',
-              'Pragma': 'no-cache'
-            },
-            timeout: apiConfig.requestConfig.timeout,
-            params: { t: new Date().getTime() } // Cache busting
-          });
-          
-          // If successful, break out of retry loop
-          if (response && response.data) {
-            console.log('Received valid response:', response.data);
-            break;
+      // Try FormData approach first (preferred)
+      try {
+        response = await axios.post(apiUrl, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Cache-Control': 'no-cache',
+          },
+          params: { t: new Date().getTime() } // Cache busting
+        });
+        
+        console.log('FormData approach succeeded:', response.data);
+      } catch (formDataError) {
+        console.log('FormData approach failed:', formDataError);
+        
+        // Fall back to JSON approach if FormData fails
+        console.log('Trying JSON approach as fallback...');
+        response = await axios.post(apiUrl, {
+          filename: file.name,
+          fileSize: file.size,
+          fileType: file.type
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
           }
-        } catch (err) {
-          console.log(`Request failed. Retrying (${retries} left)...`, err);
-          lastError = err;
-          retries--;
-          
-          // Wait before retrying
-          if (retries >= 0) {
-            await new Promise(resolve => setTimeout(resolve, apiConfig.requestConfig.retryDelay));
-          }
-        }
+        });
+        
+        console.log('JSON approach succeeded:', response.data);
       }
       
-      // If we got a valid response, use it
+      // If we got a response, use it
       if (response && response.data) {
         console.log('Setting result from API response');
         setResult(response.data);
       } else {
-        // We've exhausted all retries with no valid response
-        throw new Error(lastError || 'Failed to get response after multiple retries');
+        throw new Error('No response data received');
       }
     } catch (error) {
       console.error('Error scanning file:', error);
       
-      // Try one more time with explicit server URL as fallback
+      // Make one final attempt directly to the full URL if relative path failed
       try {
-        const fullApiUrl = `${apiConfig.baseUrl}/api/scan-file`;
-        console.log('Trying explicit server URL as fallback:', fullApiUrl);
+        const fullApiUrl = `https://tlh-xi.vercel.app/api/scan-file`;
+        console.log('Making final attempt with full URL:', fullApiUrl);
         
-        const fallbackResponse = await axios.post(fullApiUrl, formData, {
+        const finalResponse = await axios.post(fullApiUrl, {
+          filename: file.name,
+          fileSize: file.size,
+          fileType: file.type
+        }, {
           headers: {
-            'Content-Type': 'multipart/form-data',
-            'Cache-Control': 'no-cache'
-          },
-          timeout: apiConfig.requestConfig.timeout
+            'Content-Type': 'application/json',
+          }
         });
         
-        if (fallbackResponse && fallbackResponse.data) {
-          console.log('Fallback request succeeded:', fallbackResponse.data);
-          setResult(fallbackResponse.data);
+        if (finalResponse && finalResponse.data) {
+          console.log('Final attempt succeeded:', finalResponse.data);
+          setResult(finalResponse.data);
           return;
         }
-      } catch (fallbackError) {
-        console.error('Fallback request also failed:', fallbackError);
+      } catch (finalError) {
+        console.error('Final attempt also failed:', finalError);
       }
       
       // Only use client-side simulation as a last resort

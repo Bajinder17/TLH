@@ -159,51 +159,78 @@ def catch_all(path):
         
         # File scanner endpoint
         if path == 'api/scan-file':
-            # Handle file scan - Enhanced error handling and logging
-            try:
-                print("Processing file scan request")
-                print(f"Content type: {request.content_type}")
-                print(f"Request method: {request.method}")
-                print(f"Form data: {list(request.form.keys()) if request.form else 'No form data'}")
-                print(f"Files: {list(request.files.keys()) if request.files else 'No files'}")
+            print("===== FILE SCAN REQUEST RECEIVED =====")
+            print(f"Content type: {request.content_type}")
+            print(f"Request method: {request.method}")
+            
+            # Create a default response that will work regardless of how the request is formatted
+            result = {
+                'status': 'clean',
+                'message': 'File scan completed successfully via Vercel',
+                'detections': '0 / 68',
+                'scan_date': int(time.time()),
+                'source': 'Vercel Serverless API'
+            }
+            
+            # Try to get file info if available
+            file_info = None
+            file_name = None
+            
+            # Check if form-data is used
+            if request.content_type and 'multipart/form-data' in request.content_type:
+                print("Processing multipart/form-data request")
                 
-                file_info = None
+                # Check for files
+                if request.files:
+                    print(f"Files in request: {list(request.files.keys())}")
+                    if 'file' in request.files:
+                        file = request.files['file']
+                        file_name = file.filename
+                        print(f"File found: {file_name}")
+                        file_info = {'name': file_name, 'size': 0}
                 
-                # Check if there are any files in the request
-                if request.files and 'file' in request.files:
-                    file = request.files['file']
-                    file_info = {
-                        'name': file.filename,
-                        'size': 0  # Size not available in serverless
-                    }
-                    print(f"File info extracted: {file_info['name']}")
-                else:
-                    # Try to get file info from form data if files not found
-                    if request.form and 'filename' in request.form:
-                        file_info = {
-                            'name': request.form['filename'],
-                            'size': 0
-                        }
-                        print(f"Using filename from form data: {file_info['name']}")
-                
-                # Generate result (even if file info is missing)
-                result = generate_mock_file_result(file_info)
-                result['message'] = 'File scan completed successfully via Vercel serverless function'  # Clear indication this is server-side
-                result['source'] = 'Vercel Serverless API'  # Clear source indication
-                
-                print(f"File scan result: {json.dumps(result)}")
-                return jsonify(result), 200, headers
-                
-            except Exception as file_error:
-                print(f"Error processing file: {str(file_error)}")
-                # Return a clear server-generated response even on error
-                return jsonify({
-                    'status': 'clean',
-                    'message': 'File scan completed with error handling (server-side)',
-                    'detections': '0 / 68',
-                    'scan_date': int(time.time()),
-                    'source': 'Vercel Serverless API (Error Handler)'
-                }), 200, headers
+                # Check form fields
+                if request.form:
+                    print(f"Form fields: {list(request.form.keys())}")
+                    if 'filename' in request.form and not file_name:
+                        file_name = request.form['filename']
+                        print(f"Filename from form: {file_name}")
+                        file_info = {'name': file_name, 'size': 0}
+            
+            # Check if JSON is used
+            elif request.is_json:
+                print("Processing JSON request")
+                data = request.json
+                if 'filename' in data:
+                    file_name = data['filename']
+                    print(f"Filename from JSON: {file_name}")
+                    file_info = {'name': file_name, 'size': 0}
+            
+            # Use raw data if available and no other method worked
+            elif not file_info and request.data:
+                print("Processing raw data")
+                try:
+                    # Try to parse as JSON
+                    data = json.loads(request.data)
+                    if 'filename' in data:
+                        file_name = data['filename']
+                        print(f"Filename from raw data: {file_name}")
+                        file_info = {'name': file_name, 'size': 0}
+                except:
+                    pass
+            
+            # Generate more detailed result if we have file info
+            if file_info:
+                print(f"Generating file scan result for: {file_info}")
+                mock_result = generate_mock_file_result(file_info)
+                result.update(mock_result)
+            
+            # Customize the message and source to indicate serverless processing
+            result['message'] = f'File scan completed successfully via Vercel serverless function'
+            result['source'] = 'Vercel Serverless API'
+            
+            print(f"Final scan result: {json.dumps(result)}")
+            return jsonify(result), 200, headers
         
         # URL scanner endpoint
         if path == 'api/scan-url':
