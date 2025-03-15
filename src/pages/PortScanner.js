@@ -45,128 +45,30 @@ const PortScanner = () => {
     try {
       console.log('Starting port scan for:', target, 'Range:', portRange);
       
-      // Use local mock implementation when in Vercel environment or if there's an error
-      const useMockScan = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      // Always use the API for scanning
+      const apiUrl = '/api/scan-ports';
+      console.log('Sending request to:', apiUrl);
       
-      if (useMockScan) {
-        console.log('Using mock port scan in production environment');
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // Generate mock IP if hostname
-        let targetIp = target;
-        if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(target)) {
-          // This is likely a hostname, generate a mock IP
-          targetIp = `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
-        }
-        
-        // Parse port range and generate mock results
-        const ports = [];
-        if (portRange.includes('-')) {
-          const [start, end] = portRange.split('-').map(p => parseInt(p.trim()));
-          for (let i = start; i <= end && i <= 1000; i++) {
-            ports.push(i);
-          }
-        } else if (portRange.includes(',')) {
-          portRange.split(',').forEach(p => {
-            const port = parseInt(p.trim());
-            if (!isNaN(port) && port > 0 && port < 65536) {
-              ports.push(port);
-            }
-          });
-        } else {
-          const port = parseInt(portRange.trim());
-          if (!isNaN(port) && port > 0 && port < 65536) {
-            ports.push(port);
-          }
-        }
-        
-        // Common ports with their service names
-        const commonPorts = {
-          21: 'FTP',
-          22: 'SSH',
-          23: 'Telnet',
-          25: 'SMTP',
-          53: 'DNS',
-          80: 'HTTP',
-          110: 'POP3',
-          143: 'IMAP',
-          443: 'HTTPS',
-          3306: 'MySQL',
-          3389: 'RDP',
-          8080: 'HTTP-Proxy'
-        };
-        
-        // Generate some random open ports
-        const openPorts = [];
-        const numOpenPorts = Math.floor(Math.random() * 5) + 1; // 1-5 open ports
-        
-        // First try to include some common ports if they're in the range
-        Object.keys(commonPorts).forEach(port => {
-          port = parseInt(port);
-          if (ports.includes(port) && Math.random() > 0.5 && openPorts.length < numOpenPorts) {
-            openPorts.push({
-              port: port,
-              service: commonPorts[port]
-            });
-          }
-        });
-        
-        // Add random ports if we don't have enough yet
-        while (openPorts.length < numOpenPorts && ports.length > 0) {
-          const randomIndex = Math.floor(Math.random() * ports.length);
-          const port = ports[randomIndex];
-          
-          // Skip if this port is already included
-          if (openPorts.some(p => p.port === port)) {
-            continue;
-          }
-          
-          openPorts.push({
-            port: port,
-            service: commonPorts[port] || 'Unknown'
-          });
-        }
-        
-        // Sort ports numerically
-        openPorts.sort((a, b) => a.port - b.port);
-        
-        setResult({
-          status: 'completed',
-          target_ip: targetIp,
-          open_ports: openPorts,
-          total_ports_scanned: ports.length,
-          scan_date: Math.floor(Date.now() / 1000)
-        });
-      } else {
-        // Real API call for local development
-        const apiUrl = '/api/scan-ports';
-        console.log('Sending request to:', apiUrl);
-        
-        const response = await axios.post(apiUrl, {
-          target,
-          port_range: portRange
-        }, {
-          timeout: 180000, // 3 minutes
-        });
-        
-        console.log('Received response:', response.data);
-        setResult(response.data);
-      }
+      const response = await axios.post(apiUrl, {
+        target,
+        port_range: portRange
+      }, {
+        timeout: 180000, // 3 minutes
+        // Add retry logic for reliability
+        retry: 1,
+        retryDelay: 1000
+      });
+      
+      console.log('Received response:', response.data);
+      setResult(response.data);
+      
     } catch (error) {
       console.error('Error scanning ports:', error);
-      
-      // Provide fallback result when API fails
       setResult({
-        status: 'completed',
-        target_ip: target.match(/^\d+\.\d+\.\d+\.\d+$/) ? target : '192.168.1.1',
-        message: 'Using fallback scanner due to API error',
-        open_ports: [
-          { port: 80, service: 'HTTP' },
-          { port: 443, service: 'HTTPS' }
-        ],
-        total_ports_scanned: parseInt(portRange.split('-')[1] || portRange.split(',').length || 1000),
-        scan_date: Math.floor(Date.now() / 1000)
+        status: 'error',
+        message: error.code === 'ECONNABORTED' 
+          ? 'Request timed out. Try scanning fewer ports or a smaller port range.'
+          : `Error scanning ports: ${error.message}`
       });
     } finally {
       setLoading(false);
@@ -770,7 +672,7 @@ const PortScanner = () => {
         
         .result-message p {
           margin: 0;
-          color: var(--text-color);
+          color: var (--text-color);
         }
         
         .port-info-panel {

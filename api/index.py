@@ -53,8 +53,8 @@ def api_scan_file():
     try:
         print("Starting file scan request")
         
-        # Always use mock scanner in Vercel environment
-        use_mock = True
+        # Use real scanner instead of mock
+        use_mock = False
         
         if 'file' not in request.files:
             return jsonify({'error': 'No file part'}), 400
@@ -78,10 +78,10 @@ def api_scan_file():
                 with open(file_path, 'rb') as f:
                     file_hash = hashlib.sha256(f.read()).hexdigest()
                 
-                # Use mock scanner
-                scan_result = mock_file_scan(file_path, file_hash)
+                # Use real file scanner
+                scan_result = scan_file(file_path, file_hash)
                 
-                # Generate report with mock result
+                # Generate report
                 generate_report('file', {
                     'filename': filename,
                     'hash': file_hash,
@@ -125,8 +125,8 @@ def api_scan_url():
         print(f"URL to scan: {url}")
         
         try:
-            # Use mock scanner in Vercel environment
-            scan_result = mock_url_scan(url)
+            # Use real URL scanner
+            scan_result = scan_url(url)
             
             # Generate report
             generate_report('url', {
@@ -163,8 +163,8 @@ def api_scan_ports():
         print(f"Target: {target}, Port range: {port_range}")
         
         try:
-            # Use mock scanner in Vercel environment
-            scan_result = mock_port_scan(target, port_range)
+            # Use real port scanner
+            scan_result = scan_ports(target, port_range)
             
             # Generate report
             generate_report('port', {

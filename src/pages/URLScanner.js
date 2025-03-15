@@ -26,62 +26,27 @@ const URLScanner = () => {
     try {
       console.log('Starting URL scan for:', url);
       
-      // Use local mock implementation when in Vercel environment or if there's an error
-      const useMockScan = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      // Always use the API for scanning
+      const apiUrl = '/api/scan-url';
+      console.log('Sending request to:', apiUrl);
       
-      if (useMockScan) {
-        console.log('Using mock URL scan in production environment');
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Check for suspicious patterns in URL
-        const maliciousPatterns = ['evil', 'hack', 'malware', 'phish', 'spam', 'virus'];
-        const suspiciousPatterns = ['free', 'win', 'discount', 'casino', 'prize'];
-        
-        const isMalicious = maliciousPatterns.some(pattern => url.toLowerCase().includes(pattern));
-        const isSuspicious = suspiciousPatterns.some(pattern => url.toLowerCase().includes(pattern));
-        
-        let status = 'safe';
-        if (isMalicious) {
-          status = 'malicious';
-        } else if (isSuspicious || Math.random() < 0.2) {
-          status = 'suspicious';
-        }
-        
-        setResult({
-          status: status,
-          message: status === 'safe' ? 'No threats detected' : 
-                   status === 'suspicious' ? 'Some suspicious elements detected' : 
-                   'This URL appears to be malicious',
-          categories: status === 'malicious' ? ['malware', 'phishing'] : 
-                      status === 'suspicious' ? ['suspicious'] : [],
-          source: 'Mock Scanner (Client-side)'
-        });
-      } else {
-        // Real API call for local development
-        const apiUrl = '/api/scan-url';
-        console.log('Sending request to:', apiUrl);
-        
-        const response = await axios.post(apiUrl, { url }, {
-          timeout: 120000,
-        });
-        
-        console.log('Received response:', response.data);
-        setResult(response.data);
-      }
+      const response = await axios.post(apiUrl, { url }, {
+        timeout: 120000,
+        // Add retry logic for reliability
+        retry: 2,
+        retryDelay: 1000
+      });
+      
+      console.log('Received response:', response.data);
+      setResult(response.data);
+      
     } catch (error) {
       console.error('Error scanning URL:', error);
-      
-      // Provide fallback result when API fails
-      const lowerUrl = url.toLowerCase();
-      // Simple heuristic check for suspicious patterns
-      const suspiciousWords = ['free', 'win', 'prize', 'casino', 'pharma', 'hack', 'crack'];
-      const isSuspicious = suspiciousWords.some(word => lowerUrl.includes(word));
-      
       setResult({
-        status: isSuspicious ? 'suspicious' : 'safe',
-        message: isSuspicious ? 'Potentially suspicious URL (fallback scan)' : 'No obvious threats detected (fallback scan)',
-        source: 'Fallback Scanner (Client-side)'
+        status: 'error',
+        message: error.code === 'ECONNABORTED' 
+          ? 'Request timed out. The server might be busy. Please try again later.'
+          : `Error scanning URL: ${error.message}`
       });
     } finally {
       setLoading(false);

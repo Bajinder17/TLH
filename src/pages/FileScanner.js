@@ -56,57 +56,29 @@ const FileScanner = () => {
     try {
       console.log('Starting file scan for:', file.name);
       
-      // Use local mock implementation when in Vercel environment or if there's an error
-      const useMockScan = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      // Always use the API for scanning
+      const apiUrl = '/api/scan-file';
+      console.log('Sending request to:', apiUrl);
       
-      if (useMockScan) {
-        console.log('Using mock file scan in production environment');
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Generate mock result based on file type
-        const fileExt = file.name.split('.').pop().toLowerCase();
-        const riskLevel = ['exe', 'bat', 'ps1', 'vbs', 'dll'].includes(fileExt) ? 0.7 : 0.1;
-        const isMalicious = Math.random() < riskLevel;
-        
-        setResult({
-          status: isMalicious ? 'malicious' : 'clean',
-          detections: isMalicious ? `${Math.floor(Math.random() * 15) + 1}/68` : '0/68',
-          message: isMalicious ? 'Potentially malicious file detected' : 'No threats detected',
-          source: 'Mock Scanner (Client-side)'
-        });
-      } else {
-        // Real API call for local development
-        const apiUrl = '/api/scan-file';
-        console.log('Sending request to:', apiUrl);
-        
-        const response = await axios.post(apiUrl, formData, {
-          headers: {'Content-Type': 'multipart/form-data'},
-          timeout: 120000,
-        });
-        
-        console.log('Received response:', response.data);
-        setResult(response.data);
-      }
-    } catch (error) {
-      console.error('Error scanning file:', error);
-      
-      // Provide fallback result when API fails
-      setResult({
-        status: 'error',
-        message: 'Error scanning file. Using local fallback scanner.',
-        source: 'Fallback Scanner (Client-side)'
+      const response = await axios.post(apiUrl, formData, {
+        headers: {'Content-Type': 'multipart/form-data'},
+        timeout: 120000,
+        // Add retry logic for reliability
+        retry: 2,
+        retryDelay: 1000
       });
       
-      // Wait a moment and then show a mock result so the user sees something
-      setTimeout(() => {
-        setResult({
-          status: Math.random() > 0.8 ? 'malicious' : 'clean',
-          detections: Math.random() > 0.8 ? `${Math.floor(Math.random() * 10) + 1}/68` : '0/68',
-          message: Math.random() > 0.8 ? 'Potentially malicious file detected (fallback scan)' : 'No threats detected (fallback scan)',
-          source: 'Fallback Scanner (Client-side)'
-        });
-      }, 1000);
+      console.log('Received response:', response.data);
+      setResult(response.data);
+      
+    } catch (error) {
+      console.error('Error scanning file:', error);
+      setResult({
+        status: 'error',
+        message: error.code === 'ECONNABORTED' 
+          ? 'Request timed out. The file may be too large or the server is busy. Please try again later.'
+          : `Error scanning file: ${error.message}`
+      });
     } finally {
       setLoading(false);
     }
