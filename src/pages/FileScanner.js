@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { useSupabase } from '../context/SupabaseContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-import config from '../config';
+// Remove the unused config import
+// import config from '../config';
 
 const FileScanner = () => {
   const [file, setFile] = useState(null);
