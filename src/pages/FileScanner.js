@@ -57,94 +57,93 @@ const FileScanner = () => {
     
     console.log('Starting file scan for:', file.name);
     
-    // Create a smaller representation of the file to send to Vercel
-    // This information may be used in future development
-    // eslint-disable-next-line no-unused-vars
-    const fileData = {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      lastModified: file.lastModified
-    };
-    
     try {
-      // Create FormData and add both the file and the file metadata
-      const formData = new FormData();  
+      // Determine if we're on Vercel deployment
+      const isVercel = window.location.hostname.includes('vercel.app');
+      console.log('Running on Vercel deployment:', isVercel);
       
-      // Only add the actual file if it's small enough (under 4MB)
-      // Vercel has limitations on payload size
-      if (file.size < 4 * 1024 * 1024) {
-        formData.append('file', file);     
-      }
+      // Prepare data about the file
+      const fileMetadata = {
+        filename: file.name,
+        fileType: file.type || '',
+        fileSize: file.size || 0,
+        timestamp: new Date().getTime() // Add timestamp to prevent caching
+      };
       
-      // Always include the filename separately to ensure the server gets it
-      formData.append('filename', file.name);      
+      // Determine correct API endpoint
+      const apiUrl = isVercel 
+        ? `${window.location.origin}/api/scan-file`
+        : '/api/scan-file';
+      
+      console.log('Using API URL:', apiUrl);
       
       let response;
-      let apiUrl = '/api/scan-file';
-      console.log('Sending request to:', apiUrl);
       
-      // Try FormData approach first (preferred)
-      try {
-        response = await axios.post(apiUrl, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            'Cache-Control': 'no-cache',
-          },
-          params: { t: new Date().getTime() } // Cache busting
-        });
-        
-        console.log('FormData approach succeeded:', response.data);
-      } catch (formDataError) {
-        console.log('FormData approach failed:', formDataError);
-        
-        // Fall back to JSON approach if FormData fails
-        console.log('Trying JSON approach as fallback...');
-        response = await axios.post(apiUrl, {
-          filename: file.name,
-          fileSize: file.size,
-          fileType: file.type
-        }, {
+      // For PDF files and small files, try direct upload first
+      if (file.size < 5 * 1024 * 1024) { // Less than 5MB
+        try {
+          console.log('Attempting direct file upload...');
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('filename', file.name);
+          
+          response = await axios.post(apiUrl, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+            timeout: 30000
+          });
+          
+          console.log('Direct upload succeeded:', response.data);
+        } catch (uploadError) {
+          console.log('Direct upload failed:', uploadError.message);
+          
+          // Try JSON approach if file upload fails
+          console.log('Falling back to JSON metadata approach...');
+          response = await axios.post(apiUrl, fileMetadata, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            timeout: 30000
+          });
+          
+          console.log('JSON approach succeeded:', response.data);
+        }
+      } else {
+        // For larger files, only send metadata
+        console.log('File too large for direct upload, using metadata only...');
+        response = await axios.post(apiUrl, fileMetadata, {
           headers: {
             'Content-Type': 'application/json',
-          }
+          },
+          timeout: 30000
         });
         
-        console.log('JSON approach succeeded:', response.data);
+        console.log('Metadata approach succeeded:', response.data);
       }
       
-      // If we got a response, use it
+      // If we got a valid response, use it
       if (response && response.data) {
-        console.log('Setting result from API response');
-        setResult(response.data);
+        console.log('Setting scan result from API response');
+        
+        // Enhanced result with more details
+        const enhancedResult = {
+          ...response.data,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          request_origin: window.location.origin,
+        };
+        
+        setResult(enhancedResult);
       } else {
-        throw new Error('No response data received');
+        throw new Error('No valid response data received');
       }
     } catch (error) {
-      console.error('All API attempts failed:', error);
+      console.error('Error in scan process:', error);
       
-      // Final attempt with explicit call to Vercel function
-      try {
-        console.log('Making final explicit attempt to Vercel function...');
-        const vercelResponse = await axios.post('https://tlh-xi.vercel.app/api/scan-file', {
-          filename: file.name,
-          fileSize: file.size,
-          fileType: file.type
-        }, {
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (vercelResponse && vercelResponse.data) {
-          console.log('Explicit Vercel function call succeeded:', vercelResponse.data);
-          setResult(vercelResponse.data);
-          return;
-        }
-      } catch (vercelError) {
-        console.error('Explicit Vercel function call also failed:', vercelError);
-      }
-      
-      // Use the client fallback utility for a more realistic simulation
-      console.log('Using client-side fallback');
+      // As a last resort, use client-side fallback
+      console.log('Using client-side fallback as last resort');
       const fallbackResult = generateFileScanFallback({
         name: file.name,
         size: file.size,

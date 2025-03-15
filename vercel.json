@@ -5,8 +5,7 @@
       "src": "api/serverless.py",
       "use": "@vercel/python",
       "config": {
-        "maxLambdaSize": "15mb",
-        "runtime": "python3.9"
+        "maxLambdaSize": "15mb"
       }
     },
     {
@@ -25,7 +24,7 @@
       "headers": {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
         "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     },
@@ -33,9 +32,7 @@
       "src": "/api/(.*)",
       "dest": "api/serverless.py",
       "headers": {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization"
+        "Access-Control-Allow-Origin": "*"
       }
     },
     {
