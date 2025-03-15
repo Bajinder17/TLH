@@ -59,12 +59,12 @@ const FileScanner = () => {
     try {
       console.log('Starting file scan for:', file.name);
       
-      // Use relative URL for API endpoints
-      const apiUrl = '/api/scan-file';
+      // Use API config for endpoint
+      const apiUrl = apiConfig.endpoints.scanFile;
       console.log('Sending request to:', apiUrl);
       
       // Add retry mechanism for network failures
-      let retries = 2;
+      let retries = apiConfig.requestConfig.retries;
       let response;
       let lastError = null;
       
