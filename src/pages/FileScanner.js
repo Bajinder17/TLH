@@ -66,32 +66,37 @@ const FileScanner = () => {
         timestamp: new Date().getTime() // Add timestamp to prevent caching
       };
       
-      // Determine if running on Vercel or locally
+      // Determine if running on Vercel
       const isVercel = window.location.hostname.includes('vercel.app');
-      console.log('Running on Vercel:', isVercel);
+      console.log('Running on Vercel deployment:', isVercel);
       
-      // Try multiple API endpoints with a retry mechanism
-      let apiResponse = null;
+      // Determine the appropriate API URL based on environment
+      const baseApiUrl = isVercel 
+        ? `${window.location.origin}/api` 
+        : '/api';
       
-      // First try the current domain's API
+      // First try with direct path
+      console.log(`Trying API at ${baseApiUrl}/scan-file`);
+      
       try {
-        console.log('Trying API on current domain...');
-        const response = await axios.post('/api/scan-file', fileMetadata, {
+        const response = await axios.post(`${baseApiUrl}/scan-file`, fileMetadata, {
           headers: { 'Content-Type': 'application/json' },
           timeout: 15000
         });
         
         if (response && response.data) {
-          console.log('API call succeeded on current domain:', response.data);
-          apiResponse = response.data;
+          console.log('API call succeeded:', response.data);
+          setResult(response.data);
+          setLoading(false);
+          return;
         }
       } catch (error) {
-        console.log('API call on current domain failed:', error.message);
+        console.log('Primary API attempt failed:', error.message);
         
-        // Try with explicit Vercel URL as fallback
+        // If on Vercel, try with explicit URL as fallback
         if (isVercel) {
+          console.log('Trying with explicit Vercel URL');
           try {
-            console.log('Trying explicit Vercel URL...');
             const vercelResponse = await axios.post('https://tlh-xi.vercel.app/api/scan-file', fileMetadata, {
               headers: { 'Content-Type': 'application/json' },
               timeout: 15000
@@ -99,7 +104,9 @@ const FileScanner = () => {
             
             if (vercelResponse && vercelResponse.data) {
               console.log('Explicit Vercel URL succeeded:', vercelResponse.data);
-              apiResponse = vercelResponse.data;
+              setResult(vercelResponse.data);
+              setLoading(false);
+              return;
             }
           } catch (vercelError) {
             console.log('Explicit Vercel URL failed:', vercelError.message);
@@ -107,30 +114,17 @@ const FileScanner = () => {
         }
       }
       
-      // If we got an API response, use it
-      if (apiResponse) {
-        // Enhance the response with file details
-        const enhancedResult = {
-          ...apiResponse,
-          filename: file.name,
-          fileSize: formatFileSize(file.size),
-          fileType: file.type || 'Unknown'
-        };
-        
-        setResult(enhancedResult);
-      } else {
-        // Use client-side fallback if all API attempts failed
-        console.log('All API attempts failed, using client-side fallback');
-        
-        // Generate deterministic result based on file properties
-        const fallbackResult = generateFileScanFallback({
-          name: file.name,
-          size: file.size,
-          type: file.type
-        });
-        
-        setResult(fallbackResult);
-      }
+      // If all API attempts failed, use client-side fallback
+      console.log('All API attempts failed, using client-side fallback');
+      
+      // Generate deterministic result based on file properties
+      const fallbackResult = generateFileScanFallback({
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+      
+      setResult(fallbackResult);
     } catch (error) {
       console.error('Error in scan process:', error);
       
