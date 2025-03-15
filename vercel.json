@@ -3,7 +3,10 @@
   "builds": [
     {
       "src": "api/serverless.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "10mb"
+      }
     },
     {
       "src": "package.json",
@@ -17,7 +20,6 @@
     {
       "src": "/api/(.*)",
       "dest": "api/serverless.py",
-      "methods": ["GET", "POST", "OPTIONS"],
       "headers": {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -33,6 +35,12 @@
       "dest": "/index.html"
     }
   ],
+  "functions": {
+    "api/serverless.py": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
   "env": {
     "PYTHONUNBUFFERED": "1"
   }
