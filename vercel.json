@@ -3,10 +3,7 @@
   "builds": [
     {
       "src": "api/serverless.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb"
-      }
+      "use": "@vercel/python"
     },
     {
       "src": "package.json",
@@ -18,8 +15,7 @@
   ],
   "routes": [
     {
-      "src": "/api/scan-file",
-      "methods": ["POST", "OPTIONS"],
+      "src": "/api/(.*)",
       "dest": "api/serverless.py",
       "headers": {
         "Access-Control-Allow-Origin": "*",
@@ -29,21 +25,11 @@
       }
     },
     {
-      "src": "/api/(.*)",
-      "dest": "api/serverless.py",
-      "headers": {
-        "Access-Control-Allow-Origin": "*"
-      }
-    },
-    {
       "handle": "filesystem"
     },
     {
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "env": {
-    "PYTHONUNBUFFERED": "1"
-  }
+  ]
 }
