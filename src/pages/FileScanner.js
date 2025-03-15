@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { useSupabase } from '../context/SupabaseContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import config from '../config';
 
 const FileScanner = () => {
   const [file, setFile] = useState(null);
@@ -56,7 +57,7 @@ const FileScanner = () => {
     try {
       console.log('Starting file scan for:', file.name);
       
-      // Use relative URL to ensure compatibility with both development and production
+      // Use relative URL for API endpoints
       const apiUrl = '/api/scan-file';
       console.log('Sending request to:', apiUrl);
       
