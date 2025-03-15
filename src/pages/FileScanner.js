@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { useSupabase } from '../context/SupabaseContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+// eslint-disable-next-line no-unused-vars
 import apiConfig from '../utils/apiConfig';
 // eslint-disable-next-line no-unused-vars
 import config from '../config';
@@ -56,7 +57,8 @@ const FileScanner = () => {
     console.log('Starting file scan for:', file.name);
     
     // Create a smaller representation of the file to send to Vercel
-    // This avoids issues with large file uploads
+    // This information may be used in future development
+    // eslint-disable-next-line no-unused-vars
     const fileData = {
       name: file.name,
       size: file.size,
