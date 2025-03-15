@@ -19,11 +19,11 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "api/serverless.py",
+      "dest": "/api/serverless.py",
       "headers": {
-        "Access-Control-Allow-Origin": "https://tlh-xi.vercel.app",
+        "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization",
         "Cache-Control": "no-cache, no-store, must-revalidate"
       }
     },

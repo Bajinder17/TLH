@@ -2,12 +2,12 @@
  * API configuration for production and development environments
  */
 const apiConfig = {
-  // Base URLs
+  // Base URLs - always include the full domain for production
   baseUrl: process.env.NODE_ENV === 'production' 
     ? 'https://tlh-xi.vercel.app' 
     : 'http://localhost:5000',
   
-  // API endpoints
+  // API endpoints - using relative paths for better compatibility
   endpoints: {
     health: '/api/health',
     scanFile: '/api/scan-file',
@@ -15,11 +15,11 @@ const apiConfig = {
     scanPorts: '/api/scan-ports'
   },
   
-  // Request configuration
+  // Request configuration with increased reliability
   requestConfig: {
-    timeout: 30000, // 30 seconds
-    retries: 2,
-    retryDelay: 1000 // 1 second
+    timeout: 45000, // 45 seconds - increased for better reliability
+    retries: 3,     // Increase retry count for better reliability
+    retryDelay: 1500 // 1.5 seconds between retries
   }
 };
 

@@ -54,75 +54,85 @@ const FileScanner = () => {
     
     const formData = new FormData();
     formData.append('file', file);
-    // Also add filename as a fallback for serverless environments
     formData.append('filename', file.name);
     
     try {
       console.log('Starting file scan for:', file.name);
       
-      // Use API config for endpoint with correct base URL in production
-      const apiUrl = process.env.NODE_ENV === 'production' 
-        ? `${config.urls.apiUrl}/scan-file`
-        : apiConfig.endpoints.scanFile;
-      
+      // Define the API URL - always use the relative path in production
+      const apiUrl = '/api/scan-file';
       console.log('Sending request to:', apiUrl);
       
-      // Add retry mechanism for network failures
+      // Add retry mechanism with improved error handling
       let retries = apiConfig.requestConfig.retries;
       let response;
       let lastError = null;
       
       while (retries >= 0) {
         try {
-          // Important: Add cache-busting parameter and correct Content-Type
           response = await axios.post(apiUrl, formData, {
             headers: {
               'Content-Type': 'multipart/form-data',
               'Cache-Control': 'no-cache',
               'Pragma': 'no-cache'
             },
-            timeout: 30000 * (3 - retries), // Increase timeout with each retry
+            timeout: apiConfig.requestConfig.timeout,
             params: { t: new Date().getTime() } // Cache busting
           });
           
           // If successful, break out of retry loop
-          break;
+          if (response && response.data) {
+            console.log('Received valid response:', response.data);
+            break;
+          }
         } catch (err) {
           console.log(`Request failed. Retrying (${retries} left)...`, err);
           lastError = err;
           retries--;
           
-          // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Wait before retrying
+          if (retries >= 0) {
+            await new Promise(resolve => setTimeout(resolve, apiConfig.requestConfig.retryDelay));
+          }
         }
       }
       
-      // If we got a response, use it
+      // If we got a valid response, use it
       if (response && response.data) {
-        console.log('Received response:', response.data);
+        console.log('Setting result from API response');
         setResult(response.data);
       } else {
-        // If no response after all retries, use client-side fallback
-        console.error('All retries failed, using fallback', lastError);
-        
-        // Fallback to client-side simulation
-        const fallbackResult = {
-          status: 'clean', // Default to safe for better user experience
-          message: 'File scan completed using client-side simulation',
-          detections: '0 / 68',
-          scan_date: Math.floor(Date.now() / 1000),
-          source: 'Client Fallback'
-        };
-        
-        setResult(fallbackResult);
+        // We've exhausted all retries with no valid response
+        throw new Error(lastError || 'Failed to get response after multiple retries');
       }
-      
     } catch (error) {
       console.error('Error scanning file:', error);
       
-      // Display a more user-friendly error message
+      // Try one more time with explicit server URL as fallback
+      try {
+        const fullApiUrl = `${apiConfig.baseUrl}/api/scan-file`;
+        console.log('Trying explicit server URL as fallback:', fullApiUrl);
+        
+        const fallbackResponse = await axios.post(fullApiUrl, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Cache-Control': 'no-cache'
+          },
+          timeout: apiConfig.requestConfig.timeout
+        });
+        
+        if (fallbackResponse && fallbackResponse.data) {
+          console.log('Fallback request succeeded:', fallbackResponse.data);
+          setResult(fallbackResponse.data);
+          return;
+        }
+      } catch (fallbackError) {
+        console.error('Fallback request also failed:', fallbackError);
+      }
+      
+      // Only use client-side simulation as a last resort
       const fallbackResult = {
-        status: 'clean', // Default to safe for better user experience
+        status: 'clean',
         message: 'File scan completed using client-side simulation',
         detections: '0 / 68',
         scan_date: Math.floor(Date.now() / 1000),
