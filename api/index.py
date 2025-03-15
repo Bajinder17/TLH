@@ -40,6 +40,11 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    
+    # Additional headers to help with Vercel deployment
+    response.headers.add('Cache-Control', 'no-cache, no-store, must-revalidate')
+    response.headers.add('Pragma', 'no-cache')
+    response.headers.add('Expires', '0')
     return response
 
 # Set a global timeout for VT API requests
@@ -286,6 +291,15 @@ def scan_file_background(file_path, file_hash, filename):
         # Clean up temp file
         if os.path.exists(file_path):
             os.remove(file_path)
+
+# Add a specific route for Vercel health check
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint for health checks"""
+    return jsonify({
+        'status': 'healthy',
+        'message': 'ThreatLightHouse API is running'
+    })
 
 if __name__ == '__main__':
     # Increase timeout settings
