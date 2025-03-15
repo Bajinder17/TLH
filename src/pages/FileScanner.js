@@ -58,62 +58,83 @@ const FileScanner = () => {
     console.log('Starting file scan for:', file.name);
     
     try {
-      // For Vercel deployment, use JSON-only approach which is much more reliable
+      // Prepare file metadata for scanning
       const fileMetadata = {
         filename: file.name,
         fileSize: file.size,
-        fileType: file.type
+        fileType: file.type,
+        timestamp: new Date().getTime() // Add timestamp to prevent caching
       };
       
-      // First try with automatic baseUrl detection
+      // Determine if running on Vercel or locally
+      const isVercel = window.location.hostname.includes('vercel.app');
+      console.log('Running on Vercel:', isVercel);
+      
+      // Try multiple API endpoints with a retry mechanism
+      let apiResponse = null;
+      
+      // First try the current domain's API
       try {
-        console.log('Scanning with automatic API detection...');
+        console.log('Trying API on current domain...');
         const response = await axios.post('/api/scan-file', fileMetadata, {
           headers: { 'Content-Type': 'application/json' },
           timeout: 15000
         });
         
-        if (response.data) {
-          console.log('Automatic API scan succeeded:', response.data);
-          setResult(response.data);
-          setLoading(false);
-          return;
+        if (response && response.data) {
+          console.log('API call succeeded on current domain:', response.data);
+          apiResponse = response.data;
         }
       } catch (error) {
-        console.log('Automatic API detection failed:', error.message);
+        console.log('API call on current domain failed:', error.message);
+        
+        // Try with explicit Vercel URL as fallback
+        if (isVercel) {
+          try {
+            console.log('Trying explicit Vercel URL...');
+            const vercelResponse = await axios.post('https://tlh-xi.vercel.app/api/scan-file', fileMetadata, {
+              headers: { 'Content-Type': 'application/json' },
+              timeout: 15000
+            });
+            
+            if (vercelResponse && vercelResponse.data) {
+              console.log('Explicit Vercel URL succeeded:', vercelResponse.data);
+              apiResponse = vercelResponse.data;
+            }
+          } catch (vercelError) {
+            console.log('Explicit Vercel URL failed:', vercelError.message);
+          }
+        }
       }
       
-      // If automatic detection fails, try with explicit Vercel URL
-      try {
-        console.log('Trying explicit Vercel URL...');
-        const response = await axios.post('https://tlh-xi.vercel.app/api/scan-file', fileMetadata, {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 15000
+      // If we got an API response, use it
+      if (apiResponse) {
+        // Enhance the response with file details
+        const enhancedResult = {
+          ...apiResponse,
+          filename: file.name,
+          fileSize: formatFileSize(file.size),
+          fileType: file.type || 'Unknown'
+        };
+        
+        setResult(enhancedResult);
+      } else {
+        // Use client-side fallback if all API attempts failed
+        console.log('All API attempts failed, using client-side fallback');
+        
+        // Generate deterministic result based on file properties
+        const fallbackResult = generateFileScanFallback({
+          name: file.name,
+          size: file.size,
+          type: file.type
         });
         
-        if (response.data) {
-          console.log('Explicit Vercel URL succeeded:', response.data);
-          setResult(response.data);
-          setLoading(false);
-          return;
-        }
-      } catch (error) {
-        console.log('Explicit Vercel URL failed:', error.message);
+        setResult(fallbackResult);
       }
-      
-      // If both attempts fail, use client-side fallback
-      console.log('All API attempts failed, using client-side fallback');
-      const fallbackResult = generateFileScanFallback({
-        name: file.name,
-        size: file.size,
-        type: file.type
-      });
-      
-      setResult(fallbackResult);
     } catch (error) {
       console.error('Error in scan process:', error);
       
-      // Generate a client-side fallback result
+      // Use client-side fallback as last resort
       const fallbackResult = generateFileScanFallback({
         name: file.name,
         size: file.size,
