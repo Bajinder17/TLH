@@ -38,12 +38,18 @@ def scan_file(file_path, file_hash):
             'x-apikey': VIRUSTOTAL_API_KEY
         }
         
+        # IMPORTANT: Print headers for debugging
+        print(f"Using API key (first 4 chars): {VIRUSTOTAL_API_KEY[:4]}...")
+        
         # Check if file has been analyzed before
         response = requests.get(
             f"{VIRUSTOTAL_API_URL}/files/{file_hash}",
             headers=headers,
             timeout=REQUEST_TIMEOUT
         )
+        
+        # IMPORTANT: Print response status for debugging
+        print(f"Initial VirusTotal file hash check response status: {response.status_code}")
         
         # If file exists in VT database, return the result immediately
         if response.status_code == 200:
@@ -69,83 +75,123 @@ def scan_file(file_path, file_hash):
             return mock_file_scan(file_path, file_hash)
         
         # Get upload URL
-        upload_url_response = requests.get(
-            f"{VIRUSTOTAL_API_URL}/files/upload_url",
-            headers=headers,
-            timeout=REQUEST_TIMEOUT
-        )
-        
-        if upload_url_response.status_code != 200:
-            print(f"Failed to get upload URL, using mock data. Error: {upload_url_response.text}")
-            from mock_scanner import mock_file_scan
-            return mock_file_scan(file_path, file_hash)
-        
-        upload_url = upload_url_response.json().get('data')
-        
-        # Upload file
-        files = {'file': (os.path.basename(file_path), open(file_path, 'rb'))}
-        upload_response = requests.post(
-            upload_url,
-            headers=headers,
-            files=files,
-            timeout=REQUEST_TIMEOUT * 2
-        )
-        
-        if upload_response.status_code != 200:
-            print(f"Failed to upload file, using mock data. Error: {upload_response.text}")
-            from mock_scanner import mock_file_scan
-            return mock_file_scan(file_path, file_hash)
-        
-        analysis_id = upload_response.json().get('data', {}).get('id')
-        
-        if not analysis_id:
-            print("No analysis ID returned from upload, using mock data")
-            from mock_scanner import mock_file_scan
-            return mock_file_scan(file_path, file_hash)
-        
-        # Wait for analysis to complete (max 3 attempts)
-        max_attempts = 3
-        for attempt in range(max_attempts):
-            print(f"Checking analysis status (attempt {attempt+1}/{max_attempts})")
-            
-            # Check analysis status
-            analysis_response = requests.get(
-                f"{VIRUSTOTAL_API_URL}/analyses/{analysis_id}",
+        try:
+            upload_url_response = requests.get(
+                f"{VIRUSTOTAL_API_URL}/files/upload_url",
                 headers=headers,
                 timeout=REQUEST_TIMEOUT
             )
             
-            if analysis_response.status_code != 200:
-                print(f"Failed to get analysis status, using mock data. Error: {analysis_response.text}")
-                from mock_scanner import mock_file_scan
-                return mock_file_scan(file_path, file_hash)
+            print(f"Upload URL response status: {upload_url_response.status_code}")
             
-            status = analysis_response.json().get('data', {}).get('attributes', {}).get('status')
+            if upload_url_response.status_code != 200:
+                print(f"Failed to get upload URL: {upload_url_response.text}")
+                raise Exception(f"Failed to get upload URL: {upload_url_response.text}")
             
-            if status == 'completed':
-                print("Analysis completed")
-                result = process_vt_analysis_response(analysis_response.json())
+            upload_url = upload_url_response.json().get('data')
+            
+            if not upload_url:
+                print("No upload URL returned")
+                raise Exception("No upload URL returned")
+                
+            print(f"Got upload URL: {upload_url[:30]}...")
+            
+            # Upload file
+            with open(file_path, 'rb') as file_to_upload:
+                files = {'file': (os.path.basename(file_path), file_to_upload)}
+                upload_response = requests.post(
+                    upload_url,
+                    headers=headers,
+                    files=files,
+                    timeout=REQUEST_TIMEOUT * 2
+                )
+                
+                print(f"Upload response status: {upload_response.status_code}")
+                
+                if upload_response.status_code != 200:
+                    print(f"Failed to upload file: {upload_response.text}")
+                    raise Exception(f"Failed to upload file: {upload_response.text}")
+                
+                upload_json = upload_response.json()
+                analysis_id = upload_json.get('data', {}).get('id')
+                
+                if not analysis_id:
+                    print(f"No analysis ID returned from upload. Response: {upload_json}")
+                    raise Exception("No analysis ID returned from upload")
+                
+                print(f"Analysis ID: {analysis_id}")
+                
+                # Wait for analysis to complete (max 3 attempts)
+                max_attempts = 3
+                for attempt in range(max_attempts):
+                    print(f"Checking analysis status (attempt {attempt+1}/{max_attempts})")
+                    
+                    # Check analysis status
+                    analysis_response = requests.get(
+                        f"{VIRUSTOTAL_API_URL}/analyses/{analysis_id}",
+                        headers=headers,
+                        timeout=REQUEST_TIMEOUT
+                    )
+                    
+                    print(f"Analysis status response: {analysis_response.status_code}")
+                    
+                    if analysis_response.status_code != 200:
+                        print(f"Failed to get analysis status: {analysis_response.text}")
+                        raise Exception(f"Failed to get analysis status: {analysis_response.text}")
+                    
+                    analysis_json = analysis_response.json()
+                    status = analysis_json.get('data', {}).get('attributes', {}).get('status')
+                    
+                    print(f"Analysis status: {status}")
+                    
+                    if status == 'completed':
+                        print("Analysis completed")
+                        result = process_vt_analysis_response(analysis_json)
+                        return result
+                    
+                    if attempt < max_attempts - 1:
+                        sleep_time = 5 * (attempt + 1)  # Increase wait time with each attempt
+                        print(f"Analysis not complete yet, waiting {sleep_time} seconds...")
+                        time.sleep(sleep_time)
+                
+                # If we reach this point, the analysis is still not complete
+                # Try to get file report one more time using the file hash
+                print("Analysis taking too long, trying file hash lookup again")
+                final_response = requests.get(
+                    f"{VIRUSTOTAL_API_URL}/files/{file_hash}",
+                    headers=headers,
+                    timeout=REQUEST_TIMEOUT
+                )
+                
+                if final_response.status_code == 200:
+                    print("File found in VirusTotal database after upload")
+                    data = final_response.json()
+                    result = process_vt_response(data)
+                    return result
+                
+                # Return partial results
+                print("Analysis still incomplete, returning partial results")
+                # Use the analysis data we have
+                result = {
+                    'status': 'pending',
+                    'message': 'Analysis is still in progress. Partial results available.',
+                    'detections': 'Pending / Pending',
+                    'scan_date': int(time.time()),
+                    'source': 'VirusTotal (Partial)'
+                }
                 return result
-            
-            if attempt < max_attempts - 1:
-                print(f"Analysis not complete yet (status: {status}), waiting before retrying...")
-                time.sleep(10)  # Wait 10 seconds before checking again
-        
-        # Return mock results if complete analysis isn't available
-        print("Analysis taking too long, using mock data")
-        from mock_scanner import mock_file_scan
-        return mock_file_scan(file_path, file_hash)
+        except Exception as upload_error:
+            print(f"Error during file upload/analysis: {str(upload_error)}")
+            traceback.print_exc()
+            raise upload_error
             
     except requests.exceptions.Timeout:
-        print("VirusTotal API request timed out, using mock data")
-        from mock_scanner import mock_file_scan
-        return mock_file_scan(file_path, file_hash)
+        print("VirusTotal API request timed out")
+        raise Exception("VirusTotal API request timed out. Please try again later.")
     except Exception as e:
         print(f"Exception in scan_file: {str(e)}")
         traceback.print_exc()
-        # If anything goes wrong, fall back to mock scanner
-        from mock_scanner import mock_file_scan
-        return mock_file_scan(file_path, file_hash)
+        raise e
 
 def process_vt_response(data):
     """Process VirusTotal response data"""

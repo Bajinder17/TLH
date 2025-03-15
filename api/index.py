@@ -53,10 +53,9 @@ def api_scan_file():
     try:
         print("Starting file scan request")
         
-        # Check if we're in Vercel environment (production)
-        is_vercel = os.environ.get('VERCEL') == '1'
-        if is_vercel:
-            print("Running in Vercel environment, using mock data for reliability")
+        # IMPORTANT: Set this to False to always try real scanner first
+        is_vercel = False
+        print(f"Using real scanner for file scan")
         
         if 'file' not in request.files:
             return jsonify({'error': 'No file part'}), 400
@@ -80,14 +79,9 @@ def api_scan_file():
                 with open(file_path, 'rb') as f:
                     file_hash = hashlib.sha256(f.read()).hexdigest()
                 
-                try:
-                    # Try real scanner first
-                    print("Attempting to use real scanner")
-                    scan_result = scan_file(file_path, file_hash)
-                except Exception as e:
-                    # Fall back to mock scanner if real scanner fails
-                    print(f"Real scanner failed: {str(e)}, using mock data instead")
-                    scan_result = mock_file_scan(file_path, file_hash)
+                # Always try real scanner first
+                print("Using real scanner for file")
+                scan_result = scan_file(file_path, file_hash)
                 
                 # Generate report
                 generate_report('file', {
@@ -103,7 +97,8 @@ def api_scan_file():
                 print("Error in file scanning:", str(e))
                 traceback.print_exc()
                 
-                # Return mock data on error for a better user experience
+                # Only use mock as a last resort
+                print("Using mock scanner as fallback")
                 fallback_result = mock_file_scan(file_path, file_hash)
                 return jsonify(fallback_result)
             finally:
@@ -121,10 +116,9 @@ def api_scan_file():
         
         # Return fallback data when everything else fails
         return jsonify({
-            'status': 'clean',
-            'message': 'Fallback scan completed successfully',
-            'detections': '0 / 68',
-            'source': 'Fallback Scanner'
+            'status': 'error',
+            'message': f'Error in scan service: {str(e)}',
+            'source': 'Error Handler'
         })
 
 @app.route('/api/scan-url', methods=['POST', 'OPTIONS'])
@@ -142,27 +136,28 @@ def api_scan_url():
         url = data['url']
         print(f"URL to scan: {url}")
         
-        # Check if we're in Vercel environment (production)
-        is_vercel = os.environ.get('VERCEL') == '1'
-        if is_vercel:
-            print("Running in Vercel environment, using mock data for reliability")
+        # IMPORTANT: Always use real scanner
+        print("Using real URL scanner")
         
         try:
-            # Try real scanner first
-            print("Attempting to use real URL scanner")
+            # Always use real scanner first
             scan_result = scan_url(url)
+            
+            # Generate report
+            generate_report('url', {
+                'url': url,
+                'result': scan_result
+            })
+            
+            return jsonify(scan_result)
         except Exception as e:
-            # Fall back to mock scanner if real scanner fails
-            print(f"Real scanner failed: {str(e)}, using mock data instead")
-            scan_result = mock_url_scan(url)
-        
-        # Generate report
-        generate_report('url', {
-            'url': url,
-            'result': scan_result
-        })
-        
-        return jsonify(scan_result)
+            print(f"Real URL scanner failed: {str(e)}")
+            traceback.print_exc()
+            
+            # Only use mock as fallback
+            print("Using mock URL scanner as fallback")
+            fallback_result = mock_url_scan(url)
+            return jsonify(fallback_result)
             
     except Exception as e:
         print("Unexpected error in URL scanning API:", str(e))
@@ -190,28 +185,37 @@ def api_scan_ports():
         
         print(f"Target: {target}, Port range: {port_range}")
         
-        # Check if we're in Vercel environment (production)
-        is_vercel = os.environ.get('VERCEL') == '1'
-        if is_vercel:
-            print("Running in Vercel environment, using mock data for reliability")
+        # IMPORTANT: Always use real scanner
+        print("Using real port scanner")
+        
+        try:
+            # Always use real scanner first
+            scan_result = scan_ports(target, port_range)
+            
+            # Generate report
+            generate_report('port', {
+                'target': target,
+                'port_range': port_range,
+                'result': scan_result
+            })
+            
+            return jsonify(scan_result)
+        except Exception as e:
+            print(f"Real port scanner failed: {str(e)}")
+            traceback.print_exc()
+            
+            # Fall back to mock scanner if real scanner fails
+            print("Using mock port scanner as fallback")
             scan_result = mock_port_scan(target, port_range)
-        else:
-            try:
-                # Try real scanner first
-                scan_result = scan_ports(target, port_range)
-            except Exception as e:
-                # Fall back to mock scanner if real scanner fails
-                print(f"Real scanner failed: {str(e)}, using mock data instead")
-                scan_result = mock_port_scan(target, port_range)
-        
-        # Generate report
-        generate_report('port', {
-            'target': target,
-            'port_range': port_range,
-            'result': scan_result
-        })
-        
-        return jsonify(scan_result)
+            
+            # Generate report
+            generate_report('port', {
+                'target': target,
+                'port_range': port_range,
+                'result': scan_result
+            })
+            
+            return jsonify(scan_result)
             
     except Exception as e:
         print("Unexpected error in port scanning API:", str(e))
@@ -226,7 +230,8 @@ def api_scan_ports():
         
         return jsonify({
             'status': 'error',
-            'message': 'Could not process port scan request'
+            'message': 'Could not process port scan request',
+            'source': 'Error Handler'
         }), 500
 
 @app.route('/api/health', methods=['GET'])
