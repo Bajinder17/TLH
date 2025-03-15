@@ -2,8 +2,7 @@ import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { useSupabase } from '../context/SupabaseContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-// Remove the unused config import
-// import config from '../config';
+import apiConfig from '../utils/apiConfig';
 
 const FileScanner = () => {
   const [file, setFile] = useState(null);
@@ -58,19 +57,19 @@ const FileScanner = () => {
     try {
       console.log('Starting file scan for:', file.name);
       
-      // Use relative URL for API endpoints
-      const apiUrl = '/api/scan-file';
+      // Use API config for endpoint
+      const apiUrl = apiConfig.endpoints.scanFile;
       console.log('Sending request to:', apiUrl);
       
       // Add retry mechanism for network failures
-      let retries = 2;
+      let retries = apiConfig.requestConfig.retries;
       let response;
       
       while (retries >= 0) {
         try {
           response = await axios.post(apiUrl, formData, {
             headers: {'Content-Type': 'multipart/form-data'},
-            timeout: 30000 * (3 - retries), // Increase timeout with each retry
+            timeout: apiConfig.requestConfig.timeout,
           });
           
           // If successful, break out of retry loop
@@ -85,7 +84,7 @@ const FileScanner = () => {
           retries--;
           
           // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, apiConfig.requestConfig.retryDelay));
         }
       }
       
