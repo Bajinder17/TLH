@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useSupabase } from '../context/SupabaseContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import apiConfig from '../utils/apiConfig';
+import config from '../config';
 
 const FileScanner = () => {
   const [file, setFile] = useState(null);
@@ -59,8 +60,11 @@ const FileScanner = () => {
     try {
       console.log('Starting file scan for:', file.name);
       
-      // Use API config for endpoint
-      const apiUrl = apiConfig.endpoints.scanFile;
+      // Use API config for endpoint with correct base URL in production
+      const apiUrl = process.env.NODE_ENV === 'production' 
+        ? `${config.urls.apiUrl}/scan-file`
+        : apiConfig.endpoints.scanFile;
+      
       console.log('Sending request to:', apiUrl);
       
       // Add retry mechanism for network failures

@@ -3,7 +3,9 @@
  */
 const apiConfig = {
   // Base URLs
-  baseUrl: process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5000',
+  baseUrl: process.env.NODE_ENV === 'production' 
+    ? 'https://tlh-xi.vercel.app' 
+    : 'http://localhost:5000',
   
   // API endpoints
   endpoints: {

@@ -133,7 +133,7 @@ def catch_all(path):
     # Handle CORS preflight requests
     if request.method == 'OPTIONS':
         headers = {
-            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Origin': 'https://tlh-xi.vercel.app',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type',
             'Access-Control-Max-Age': '86400'  # 24 hours
@@ -142,7 +142,7 @@ def catch_all(path):
     
     # Add CORS headers to all responses
     headers = {
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': 'https://tlh-xi.vercel.app',
         'Content-Type': 'application/json'
     }
     

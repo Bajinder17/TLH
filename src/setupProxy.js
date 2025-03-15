@@ -11,6 +11,9 @@ module.exports = function(app) {
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
+        pathRewrite: {
+          '^/api': '/api' // Keep the /api prefix
+        },
         onError: (err, req, res) => {
           console.error('Proxy error:', err);
           res.writeHead(500, {
