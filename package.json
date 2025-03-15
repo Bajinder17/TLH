@@ -13,7 +13,8 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.1",
     "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "yocto-queue": "^1.2.0"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -21,7 +22,9 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "api": "python api/index.py",
-    "dev": "concurrently \"npm run start\" \"npm run api\""
+    "dev": "concurrently \"npm run start\" \"npm run api\"",
+    "clean": "rm -rf node_modules && rm -rf package-lock.json",
+    "reinstall": "npm run clean && npm install"
   },
   "proxy": "http://localhost:5000",
   "eslintConfig": {

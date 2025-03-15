@@ -34,34 +34,53 @@ def catch_all(path):
     
     # Handle CORS preflight requests
     if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'})
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '86400'  # 24 hours
+        }
+        return ('', 204, headers)
     
-    # Health check endpoints
-    if path == '' or path == 'api/health':
+    # Add CORS headers to all responses
+    headers = {
+        'Access-Control-Allow-Origin': '*'
+    }
+    
+    try:
+        # Health check endpoints
+        if path == '' or path == 'api/health':
+            return jsonify({
+                'status': 'healthy',
+                'message': 'ThreatLightHouse API is running (serverless)',
+                'api_key_configured': bool(os.environ.get('REACT_APP_VIRUSTOTAL_API_KEY', ''))
+            }), 200, headers
+        
+        # File scanner endpoint
+        if path == 'api/scan-file':
+            return jsonify(mock_data['file']), 200, headers
+        
+        # URL scanner endpoint
+        if path == 'api/scan-url':
+            return jsonify(mock_data['url']), 200, headers
+        
+        # Port scanner endpoint
+        if path == 'api/scan-ports':
+            return jsonify(mock_data['port']), 200, headers
+        
+        # Default response for any other endpoint
         return jsonify({
             'status': 'healthy',
             'message': 'ThreatLightHouse API is running (serverless)',
-            'api_key_configured': bool(os.environ.get('REACT_APP_VIRUSTOTAL_API_KEY', ''))
-        })
-    
-    # File scanner endpoint
-    if path == 'api/scan-file':
-        return jsonify(mock_data['file'])
-    
-    # URL scanner endpoint
-    if path == 'api/scan-url':
-        return jsonify(mock_data['url'])
-    
-    # Port scanner endpoint
-    if path == 'api/scan-ports':
-        return jsonify(mock_data['port'])
-    
-    # Default response for any other endpoint
-    return jsonify({
-        'status': 'healthy',
-        'message': 'ThreatLightHouse API is running (serverless)',
-        'path': path
-    })
+            'path': path
+        }), 200, headers
+    except Exception as e:
+        print(f"Error handling request: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'An error occurred processing your request',
+            'error': str(e)
+        }), 500, headers
 
 # This is used by Vercel to call the Flask app
 handler = app
