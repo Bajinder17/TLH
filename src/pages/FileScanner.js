@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useSupabase } from '../context/SupabaseContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import apiConfig from '../utils/apiConfig';
+// eslint-disable-next-line no-unused-vars
 import config from '../config';
 
 const FileScanner = () => {
