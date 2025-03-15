@@ -8,15 +8,14 @@
     {
       "src": "package.json",
       "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
+      "config": { "distDir": "build" }
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "api/serverless.py"
+      "dest": "api/serverless.py",
+      "methods": ["GET", "POST", "OPTIONS"]
     },
     {
       "handle": "filesystem"
