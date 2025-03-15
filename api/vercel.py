@@ -1,43 +1,27 @@
 import os
 import sys
-import json
 
-# Print important info for debugging
-print("Starting Vercel serverless function")
+# Set up Python path
+dir_path = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.dirname(dir_path))
+sys.path.append(dir_path)
+
+# Debug info
 print(f"Python version: {sys.version}")
 print(f"Working directory: {os.getcwd()}")
+print(f"Directory contents: {os.listdir(dir_path)}")
 
-# Ensure API key is accessible in Vercel environment
-api_key = os.environ.get('REACT_APP_VIRUSTOTAL_API_KEY', '')
-if api_key:
-    print(f"API key found with length: {len(api_key)}")
-else:
-    print("WARNING: No API key found in environment")
+# Check critical environment variables
+vt_api_key = os.environ.get('REACT_APP_VIRUSTOTAL_API_KEY', '')
+print(f"API key configured: {'Yes' if vt_api_key else 'No'}")
 
-# Ensure the current directory is in the Python path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-# Create 'reports' directory if it doesn't exist (for local report storage)
-reports_dir = os.path.join(current_dir, 'reports')
-if not os.path.exists(reports_dir):
-    try:
-        os.makedirs(reports_dir)
-        print(f"Created reports directory: {reports_dir}")
-    except Exception as e:
-        print(f"Warning: Could not create reports directory: {e}")
-
+# Import the Flask app after path setup
 try:
-    # Import the Flask app
     from index import app
-    print("Successfully imported app from index.py")
+    print("Successfully imported Flask app")
 except Exception as e:
     print(f"Error importing app: {str(e)}")
     raise e
 
-# This entry point is used by Vercel
+# This is used by Vercel
 handler = app

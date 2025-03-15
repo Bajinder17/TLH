@@ -301,6 +301,28 @@ def root():
         'message': 'ThreatLightHouse API is running'
     })
 
+@app.errorhandler(404)
+def not_found(e):
+    """Handle 404 errors"""
+    return jsonify({"status": "error", "message": "Endpoint not found"}), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    """Handle 500 errors"""
+    print(f"Server error: {str(e)}")
+    return jsonify({"status": "error", "message": "Internal server error"}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Handle unhandled exceptions"""
+    print(f"Unhandled exception: {str(e)}")
+    traceback.print_exc()
+    return jsonify({
+        "status": "error", 
+        "message": "An unexpected error occurred",
+        "details": str(e)
+    }), 500
+
 if __name__ == '__main__':
     # Increase timeout settings
     app.config['TIMEOUT'] = 300  # 5 minutes

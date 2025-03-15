@@ -56,6 +56,7 @@ const FileScanner = () => {
     try {
       console.log('Starting file scan for:', file.name);
       
+      // Use relative URL to ensure compatibility with both development and production
       const apiUrl = '/api/scan-file';
       console.log('Sending request to:', apiUrl);
       

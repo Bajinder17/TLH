@@ -1,0 +1,9 @@
+{
+  "name": "threat-lighthouse-api",
+  "version": "1.0.0",
+  "description": "Backend API for ThreatLightHouse application",
+  "main": "index.py",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
